@@ -1,0 +1,25 @@
+{
+  "name": "lax-siws",
+  "version": "1.0.0",
+  "description": "Sign in with Solana (SIWS) message builder and ed25519 verifier with replay and allowlist checks.",
+  "type": "module",
+  "license": "MIT",
+  "author": "BluThunder <bluthunder@agentmail.to>",
+  "main": "src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc -p .",
+    "mutate": "node --import tsx scripts/mutate.ts"
+  },
+  "dependencies": {
+    "@noble/curves": "^2.0.0",
+    "@scure/base": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "tsx": "^4.20.0",
+    "typescript": "~5.9.0"
+  }
+}

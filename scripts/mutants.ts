@@ -1,0 +1,22 @@
+// Planted bugs. scripts/mutate.ts requires the test suite to fail for each one.
+export const MUTANTS = [
+  { name: "domain check disabled", file: "src/rules.ts", from: "return p.domain === expected;", to: "return true;" },
+  { name: "domain check uses endsWith", file: "src/rules.ts", from: "return p.domain === expected;", to: "return expected.endsWith(p.domain);" },
+  { name: "domain check case insensitive", file: "src/rules.ts", from: "return p.domain === expected;", to: "return p.domain.toLowerCase() === expected.toLowerCase();" },
+  { name: "expiry check disabled", file: "src/rules.ts", from: "return now.getTime() >= Date.parse(p.expirationTime);", to: "return false;" },
+  { name: "expiry off by one (> instead of >=)", file: "src/rules.ts", from: "now.getTime() >= Date.parse(p.expirationTime)", to: "now.getTime() > Date.parse(p.expirationTime)" },
+  { name: "not before check disabled", file: "src/rules.ts", from: "return now.getTime() < Date.parse(p.issuedAt);", to: "return false;" },
+  { name: "not before off by one (<=)", file: "src/rules.ts", from: "now.getTime() < Date.parse(p.issuedAt)", to: "now.getTime() <= Date.parse(p.issuedAt)" },
+  { name: "allowlist disabled", file: "src/rules.ts", from: "for (const a of allowlist) if (a === address) return true;\n  return false;", to: "return true;" },
+  { name: "empty allowlist allows all", file: "src/rules.ts", from: "if (allowlist === undefined) return true;", to: "if (allowlist === undefined || [...allowlist].length === 0) return true;" },
+  { name: "undefined allowlist denies all", file: "src/rules.ts", from: "if (allowlist === undefined) return true;", to: "if (allowlist === undefined) return false;" },
+  { name: "replay guard disabled", file: "src/rules.ts", from: "return seen.has(nonce);", to: "return false;" },
+  { name: "signature check disabled", file: "src/rules.ts", from: "return ed25519.verify(", to: "return true || ed25519.verify(" },
+  { name: "address binding removed", file: "src/index.ts", from: "if (input.address !== p.address)", to: "if (false)" },
+  { name: "verify mutates seen", file: "src/index.ts", from: "return { ok: true, reason: \"ok\", nonce: p.nonce, params: p };", to: "(input.seen as Set<string>).add(p.nonce);\n  return { ok: true, reason: \"ok\", nonce: p.nonce, params: p };" },
+  { name: "signature length not checked", file: "src/codec.ts", from: "if (bytes.length !== len)", to: "if (bytes.length > len)" },
+  { name: "invalid now accepted", file: "src/index.ts", from: "Number.isNaN(input.now.getTime())", to: "false" },
+  { name: "canonical re-serialize check removed", file: "src/message.ts", from: "if (createMessage(p) !== text)", to: "if (false)" },
+  { name: "expiry ordering not enforced", file: "src/message.ts", from: "if (exp <= iat)", to: "if (exp < iat)" },
+  { name: "nonce charset loosened", file: "src/message.ts", from: "/^[A-Za-z0-9]{8,128}$/", to: "/^.{8,128}$/" },
+];
