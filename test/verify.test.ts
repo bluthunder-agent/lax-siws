@@ -1,13 +1,16 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { base58 } from "@scure/base";
-import { verify } from "../src/index.ts";
+import { verify as verifyRaw, createVerifier, type VerifyInput, type VerifyOptions } from "../src/index.ts";
 import { ADDR_A, ADDR_B, DOMAIN, EXPIRES, ISSUED, NOW, SK_B, sign, signed } from "./helpers.ts";
 
+// Spec shaped input: exactly {message, signature, address, allowlist, now, seen}.
 const base = () => {
   const { message, signature } = signed();
-  return { message, signature, address: ADDR_A, domain: DOMAIN, now: NOW, seen: new Set<string>(), allowlist: [ADDR_A] };
+  return { message, signature, address: ADDR_A, now: NOW, seen: new Set<string>(), allowlist: [ADDR_A] };
 };
+// Most tests run with this server's domain configured.
+const verify = (input: VerifyInput, options: VerifyOptions = { domain: DOMAIN }) => verifyRaw(input, options);
 
 describe("required cases", () => {
   test("valid: well formed, signed, in window, allowlisted, fresh nonce", () => {
@@ -21,12 +24,12 @@ describe("required cases", () => {
   });
 
   test("wrong domain: signed for another site", () => {
-    assert.deepEqual(verify({ ...base(), domain: "evil.example.com" }), { ok: false, reason: "wrong_domain" });
+    assert.deepEqual(verify(base(), { domain: "evil.example.com" }), { ok: false, reason: "wrong_domain" });
   });
 
   test("wrong domain: suffix and case lookalikes are refused", () => {
     for (const domain of ["app.example.co", "pp.example.com", "APP.example.com", "app.example.com:443"])
-      assert.equal(verify({ ...base(), domain }).reason, "wrong_domain", domain);
+      assert.equal(verify(base(), { domain }).reason, "wrong_domain", domain);
   });
 
   test("wrong domain: message for a parent domain is refused", () => {
@@ -134,5 +137,37 @@ describe("malformed messages never throw", () => {
     const { message } = signed();
     for (const m of ["", "hello", message + "\n", message + "\nURI: x", "\n" + message, message.replace("\n\n", "\n")])
       assert.equal(verify({ ...base(), message: m }).reason, "malformed_message", JSON.stringify(m));
+  });
+});
+
+describe("spec signature and domain configuration", () => {
+  test("verify accepts exactly the spec argument list", () => {
+    const { message, signature, address, allowlist, now, seen } = base();
+    const input: VerifyInput = { message, signature, address, allowlist, now, seen };
+    assert.deepEqual(Object.keys(input).sort(), ["address", "allowlist", "message", "now", "seen", "signature"]);
+    assert.equal(verifyRaw(input).ok, true);
+  });
+  test("createVerifier gives a spec signature verifier with domain binding", () => {
+    const v = createVerifier({ domain: DOMAIN });
+    assert.equal(v(base()).ok, true);
+    const evil = createVerifier({ domain: "evil.example.com" });
+    assert.equal(evil(base()).reason, "wrong_domain");
+  });
+  test("createVerifier with an empty domain list allows no domain", () => {
+    assert.equal(createVerifier({ domains: [] })(base()).reason, "wrong_domain");
+  });
+  test("domain allowlist: message domain derived and matched exactly", () => {
+    const opts = { domains: ["other.example.com", DOMAIN] };
+    assert.equal(verifyRaw(base(), opts).ok, true);
+    assert.equal(verifyRaw(base(), { domains: ["other.example.com"] }).reason, "wrong_domain");
+    assert.equal(verifyRaw(base(), { domains: ["example.com", "APP.EXAMPLE.COM"] }).reason, "wrong_domain");
+  });
+  test("domain and domains combine", () => {
+    assert.equal(verifyRaw(base(), { domain: "x.example.com", domains: [DOMAIN] }).ok, true);
+    assert.equal(verifyRaw(base(), { domain: DOMAIN, domains: ["x.example.com"] }).ok, true);
+  });
+  test("no domain configured: domain is not checked (documented)", () => {
+    const m = signed({ domain: "anything.example.org" });
+    assert.equal(verifyRaw({ ...base(), ...m }).ok, true);
   });
 });

@@ -11,13 +11,13 @@ domain, time window, allowlist and nonce replay. Pure functions, no network, no 
 npm ci
 npm test          # node:test via tsx
 npm run typecheck # tsc --strict
-npm run mutate    # plants 19 bugs one at a time; each must make the suite fail
+npm run mutate    # plants 23 bugs one at a time; each must make the suite fail
 ```
 
 ## API
 
 ```ts
-import { createMessage, verify } from "lax-siws";
+import { createMessage, createVerifier, verify } from "lax-siws";
 
 const message = createMessage({
   domain: "app.example.com",
@@ -30,16 +30,30 @@ const message = createMessage({
 
 // wallet signs `message` (UTF-8 bytes) with signMessage, returns a 64 byte signature
 
-const r = verify({
+// Bind the domain policy once; the returned function takes exactly the spec arguments.
+const verifySiws = createVerifier({ domain: "app.example.com" }); // or { domains: ["a.com", "b.com"] }
+
+const r = verifySiws({
   message, signature /* base58 */, address /* base58 */,
-  domain: "app.example.com",       // what this server expects
   allowlist: [address],            // optional; undefined = anyone, [] = nobody
   now: new Date(),
   seen: usedNonces,                // ReadonlySet<string>, never mutated
 });
+// Equivalent one-off form: verify({ message, signature, address, allowlist, now, seen }, { domain: "app.example.com" })
 if (r.ok) usedNonces.add(r.nonce); // the caller records the nonce
 else console.log(r.reason);
 ```
+
+### Signature and domain binding
+
+`verify(input, options?)`: `input` is exactly the spec's `{ message, signature, address, allowlist, now, seen }`.
+Domain checking lives in `options` so the spec signature is unchanged. The domain is read from the signed
+message and must equal `options.domain` or one of `options.domains` exactly (no suffix, case or port folding).
+`createVerifier(options)` fixes the policy and returns a verifier with the plain spec signature; an empty
+`domains: []` there allows no domain (fail closed).
+
+**If no domain is configured, the domain is not checked.** That keeps the bare spec call working, but any
+real server should use `createVerifier({ domain })` with its own origin.
 
 ### Message format
 
@@ -68,7 +82,7 @@ Checks run in this order and the first failure is returned:
 | `address_mismatch` | caller supplied `address` differs from the address in the message |
 | `malformed_signature` | signature is not base58 or is not 64 bytes |
 | `bad_signature` | ed25519 verification failed (strict RFC 8032, `zip215: false`) |
-| `wrong_domain` | message domain is not exactly the expected domain (no suffix or case folding) |
+| `wrong_domain` | a domain policy is configured and the message domain is not exactly one of its domains |
 | `not_yet_valid` | `now` < `issuedAt` |
 | `expired` | `now` >= `expirationTime` (valid window is `[issuedAt, expirationTime)`) |
 | `not_allowlisted` | signer not in the allowlist |
@@ -89,6 +103,6 @@ Signature is checked before policy, so an attacker cannot learn allowlist or non
 ## Notes
 
 - Replay protection is only as good as the caller's nonce store. Store nonces at least until expiry, atomically.
-- Domain binding stops phishing only if `domain` is your real origin, not taken from the request.
+- Domain binding stops phishing only if the configured domain is your real origin, not taken from the request.
 
 MIT licensed. Built by BluThunder (bluthunder@agentmail.to).

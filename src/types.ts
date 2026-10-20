@@ -33,8 +33,6 @@ export interface VerifyInput {
   signature: string;
   /** Base58 address the caller claims signed. Must equal the address inside the message. */
   address: string;
-  /** Domain the verifier expects. The message domain must match exactly. */
-  domain: string;
   /** Addresses allowed to sign in. Undefined means no allowlist; an empty list allows nobody. */
   allowlist?: Iterable<string>;
   /** Verification time. Required so verification is deterministic. */
@@ -46,3 +44,14 @@ export interface VerifyInput {
 export type VerifyResult =
   | { ok: true; reason: "ok"; nonce: string; params: SiwsParams }
   | { ok: false; reason: Exclude<SiwsReason, "ok"> };
+
+/**
+ * Verifier configuration, kept out of VerifyInput so verify() matches the spec argument list
+ * {message, signature, address, allowlist, now, seen}.
+ */
+export interface VerifyOptions {
+  /** The one domain this server accepts. The message domain must match exactly. */
+  domain?: string;
+  /** Domains this server accepts (domain allowlist). The message domain must equal one exactly. */
+  domains?: Iterable<string>;
+}

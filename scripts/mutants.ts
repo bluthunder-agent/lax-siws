@@ -1,8 +1,12 @@
 // Planted bugs. scripts/mutate.ts requires the test suite to fail for each one.
 export const MUTANTS = [
-  { name: "domain check disabled", file: "src/rules.ts", from: "return p.domain === expected;", to: "return true;" },
-  { name: "domain check uses endsWith", file: "src/rules.ts", from: "return p.domain === expected;", to: "return expected.endsWith(p.domain);" },
-  { name: "domain check case insensitive", file: "src/rules.ts", from: "return p.domain === expected;", to: "return p.domain.toLowerCase() === expected.toLowerCase();" },
+  { name: "domain check disabled", file: "src/rules.ts", from: "for (const d of allowed) if (p.domain === d) return true;\n  return false;", to: "return true;" },
+  { name: "domain check uses endsWith", file: "src/rules.ts", from: "if (p.domain === d) return true;", to: "if (d.endsWith(p.domain)) return true;" },
+  { name: "domain check case insensitive", file: "src/rules.ts", from: "if (p.domain === d) return true;", to: "if (p.domain.toLowerCase() === d.toLowerCase()) return true;" },
+  { name: "options.domains ignored", file: "src/rules.ts", from: ", ...(o.domains ?? [])]", to: "]" },
+  { name: "options.domain ignored", file: "src/rules.ts", from: "...(o.domain !== undefined ? [o.domain] : []), ", to: "" },
+  { name: "empty domain list allows all", file: "src/rules.ts", from: "if (allowed === undefined) return true;", to: "if (allowed === undefined || [...allowed].length === 0) return true;" },
+  { name: "createVerifier drops policy", file: "src/index.ts", from: "return (input) => verify(input, frozen);", to: "return (input) => verify(input);" },
   { name: "expiry check disabled", file: "src/rules.ts", from: "return now.getTime() >= Date.parse(p.expirationTime);", to: "return false;" },
   { name: "expiry off by one (> instead of >=)", file: "src/rules.ts", from: "now.getTime() >= Date.parse(p.expirationTime)", to: "now.getTime() > Date.parse(p.expirationTime)" },
   { name: "not before check disabled", file: "src/rules.ts", from: "return now.getTime() < Date.parse(p.issuedAt);", to: "return false;" },

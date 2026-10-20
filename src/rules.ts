@@ -2,8 +2,17 @@
 import { ed25519 } from "@noble/curves/ed25519.js";
 import type { SiwsParams } from "./types.ts";
 
-export function domainMatches(p: SiwsParams, expected: string): boolean {
-  return p.domain === expected;
+/** Exact match against the configured domains. undefined means no domain policy configured. */
+export function domainMatches(p: SiwsParams, allowed: Iterable<string> | undefined): boolean {
+  if (allowed === undefined) return true;
+  for (const d of allowed) if (p.domain === d) return true;
+  return false;
+}
+
+/** Merge options.domain and options.domains into one list, or undefined when neither is set. */
+export function allowedDomains(o: { domain?: string; domains?: Iterable<string> } | undefined): string[] | undefined {
+  if (o === undefined || (o.domain === undefined && o.domains === undefined)) return undefined;
+  return [...(o.domain !== undefined ? [o.domain] : []), ...(o.domains ?? [])];
 }
 
 /** Valid on the half open interval [issuedAt, expirationTime). */
